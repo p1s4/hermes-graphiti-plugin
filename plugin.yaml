@@ -1,0 +1,5 @@
+name: graphiti
+version: 1.0.0
+description: "Graphiti temporal knowledge graph memory"
+hooks:
+  - on_session_end
