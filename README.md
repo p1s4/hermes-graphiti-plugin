@@ -1,9 +1,89 @@
-# Graphiti Memory Provider for Hermes Agent
+# ⚠️ Graphiti Memory Provider for Hermes Agent
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Status: Experimental](https://img.shields.io/badge/status-experimental-orange.svg)](https://github.com/p1s4/hermes-graphiti-plugin)
+
+> **⚠️ IMPORTANT: This plugin is in BETA/EXPERIMENTAL status**
+> - Tested for 2 weeks in a personal Docker environment
+> - **Not actively maintained** - provided as-is for educational/experimental purposes
+> - May contain bugs, breaking changes, or incomplete features
+> - Use at your own risk in production environments
+
+---
 
 **Temporal knowledge graph-based memory** using [Graphiti Core](https://github.com/getzep/graphiti-core). Automatically extracts entities, facts, and relationships from conversations, stores them with timestamps in a Neo4j graph database, and retrieves relevant context for future conversations.
+
+---
+
+## 🚨 Prerequisites
+
+Before installing this plugin, ensure you have:
+
+### Required Infrastructure
+
+- **Neo4j Database** (v4.4+ or v5.x)
+  - Must be accessible from the Hermes Agent container
+  - Example: Docker container, cloud instance (Neo4j Aura), or local installation
+  
+- **LLM API Access**
+  - OpenAI-compatible API endpoint
+  - Examples: OpenAI, Gemini via LiteLLM, local models (Ollama, vLLM)
+
+- **Hermes Agent** (v1.0.0+)
+  - Running in Docker, Kubernetes, or bare metal
+  - Python 3.10+ environment
+
+### Docker Example (Tested Configuration)
+
+This plugin has been tested with the following Docker setup:
+
+```yaml
+version: '3.8'
+
+services:
+  neo4j:
+    image: neo4j:5.15
+    container_name: neo4j
+    environment:
+      NEO4J_AUTH: neo4j/your-password-here
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    networks:
+      - hermes-network
+
+  hermes:
+    image: hermes-agent:latest
+    container_name: hermes
+    command: >
+      sh -c "uv pip install --target /opt/data/plugins graphiti-core &&
+             hermes gateway run"
+    environment:
+      - GRAPHITI_API_KEY=your-api-key
+      - GRAPHITI_NEO4J_PASSWORD=your-password
+    volumes:
+      - ./plugins:/opt/data/plugins
+      - hermes_data:/opt/data
+    depends_on:
+      - neo4j
+    networks:
+      - hermes-network
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
+  hermes_data:
+
+networks:
+  hermes-network:
+    driver: bridge
+```
+
+**Note:** This is the exact configuration used during 2 weeks of testing. Your mileage may vary.
 
 ---
 
@@ -253,7 +333,7 @@ command: sh -c "uv pip install --target /opt/data/plugins graphiti-core && herme
 **Causes:**
 - Missing `GRAPHITI_API_KEY` in `.env`
 - Incorrect Neo4j credentials
-- Neo4j not running
+- Neo4j not running or not accessible
 
 **Solution:**
 1. Verify `$HERMES_HOME/.env` contains:
@@ -263,9 +343,40 @@ command: sh -c "uv pip install --target /opt/data/plugins graphiti-core && herme
    ```
 2. Check Neo4j is accessible:
    ```bash
+   # From inside Hermes container
+   nc -zv neo4j 7687
+   # or
    curl http://neo4j:7474
    ```
-3. Restart Hermes
+3. Verify Neo4j is running:
+   ```bash
+   docker ps | grep neo4j
+   ```
+4. Restart Hermes
+
+### Issue: "Cannot connect to Neo4j"
+
+**Causes:**
+- Neo4j container not running
+- Network configuration issue
+- Wrong URI in configuration
+
+**Solution:**
+1. Check Neo4j is running:
+   ```bash
+   docker ps | grep neo4j
+   ```
+2. Verify network connectivity:
+   ```bash
+   # From Hermes container
+   ping neo4j
+   telnet neo4j 7687
+   ```
+3. Check Neo4j logs:
+   ```bash
+   docker logs neo4j
+   ```
+4. Ensure both containers are on the same Docker network
 
 ### Issue: Search returns no results
 
@@ -288,7 +399,11 @@ command: sh -c "uv pip install --target /opt/data/plugins graphiti-core && herme
 1. Reduce `max_episode_content_chars` to limit episode size
 2. Use `fast` search strategy for quicker results
 3. Increase `semaphore_limit` if you have multiple concurrent conversations
-4. Check Neo4j performance and indexing
+4. Check Neo4j performance and indexing:
+   ```bash
+   # Access Neo4j browser at http://localhost:7474
+   # Run: SHOW INDEXES
+   ```
 
 ---
 
@@ -322,6 +437,8 @@ graphiti/
 ├── plugin.yaml          # Plugin metadata
 ├── README.md            # This file
 ├── LICENSE              # MIT License
+├── CONTRIBUTING.md      # Contribution guidelines
+├── CHANGELOG.md         # Change history
 └── .gitignore           # Git ignore rules
 ```
 
@@ -329,11 +446,36 @@ graphiti/
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Contributions are welcome! However, please note:
+
+- This is an **experimental project** with limited maintenance
+- Before contributing, read [CONTRIBUTING.md](CONTRIBUTING.md)
+- Test your changes thoroughly in your environment
+- Be aware that response times may be slow due to limited maintenance
+
+### Ways to Contribute
+
+1. **Report bugs** via GitHub Issues
+2. **Suggest features** via GitHub Discussions
+3. **Submit pull requests** with improvements
+4. **Improve documentation**
+
+---
+
+## ⚠️ Limitations & Known Issues
+
+### Current Limitations
+
+- **Neo4j dependency**: Requires external Neo4j database (not bundled)
+- **Single-user**: Not designed for multi-user isolation (yet)
+- **Memory growth**: Knowledge graph grows indefinitely (no automatic cleanup)
+- **Performance**: Can be slow with large graphs (>10k entities)
+
+### Known Issues
+
+- Community detection (`update_communities`) is experimental and may cause instability
+- Cross-Encoder reranking requires additional setup and is slower
+- Entity deduplication is not perfect and may create duplicates
 
 ---
 
@@ -353,6 +495,29 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
+**⚠️ Limited Support Notice:** This plugin is maintained on a best-effort basis.
+
 For issues, questions, or contributions:
-- Open an issue on [GitHub](https://github.com/p1s4/hermes-graphiti-plugin/issues)
+- Open an issue on [GitHub Issues](https://github.com/p1s4/hermes-graphiti-plugin/issues)
 - Check existing documentation in the [Wiki](https://github.com/p1s4/hermes-graphiti-plugin/wiki)
+- Start a discussion on [GitHub Discussions](https://github.com/p1s4/hermes-graphiti-plugin/discussions)
+
+**Response time:** May vary due to limited maintenance. Please be patient and consider contributing fixes!
+
+---
+
+## 📅 Project Status
+
+| Aspect | Status | Notes |
+|--------|--------|-------|
+| **Development** | Experimental | 2 weeks of testing in personal Docker environment |
+| **Maintenance** | Limited | Best-effort basis, no guaranteed updates |
+| **Stability** | Beta | Works but may have bugs |
+| **Documentation** | Complete | Comprehensive guides provided |
+| **Test Coverage** | Minimal | Test in your own environment |
+| **Production Ready** | ⚠️ Use with caution | Not recommended for critical applications |
+
+---
+
+**Last updated:** May 27, 2026  
+**Version:** 1.0.0 (Experimental)

@@ -1,5 +1,6 @@
 name: graphiti
 version: 1.0.0
+status: experimental
 description: "Temporal knowledge graph memory provider for Hermes Agent using Graphiti Core"
 author: "Hermes Graphiti Plugin Contributors"
 license: "MIT"
@@ -10,6 +11,8 @@ hooks:
   - on_session_end
 dependencies:
   - graphiti-core>=0.1.0
+external_services:
+  - neo4j>=4.4
 min_hermes_version: "1.0.0"
 min_python_version: "3.10"
 tags:
@@ -20,6 +23,7 @@ tags:
   - rag
   - llm
   - embeddings
+  - experimental
 features:
   - automatic_memory_recall
   - background_persistence
@@ -33,3 +37,8 @@ supported_platforms:
   - linux
   - docker
   - kubernetes
+warnings:
+  - "Requires external Neo4j database (not bundled)"
+  - "Experimental status - tested for 2 weeks in personal environment"
+  - "Limited maintenance - provided as-is for educational purposes"
+  - "Not recommended for production use without thorough testing"
