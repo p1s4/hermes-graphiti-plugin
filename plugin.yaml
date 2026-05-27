@@ -1,5 +1,35 @@
 name: graphiti
 version: 1.0.0
-description: "Graphiti temporal knowledge graph memory"
+description: "Temporal knowledge graph memory provider for Hermes Agent using Graphiti Core"
+author: "Hermes Graphiti Plugin Contributors"
+license: "MIT"
+repository: "https://github.com/p1s4/hermes-graphiti-plugin"
+homepage: "https://github.com/p1s4/hermes-graphiti-plugin#readme"
+bugs: "https://github.com/p1s4/hermes-graphiti-plugin/issues"
 hooks:
   - on_session_end
+dependencies:
+  - graphiti-core>=0.1.0
+min_hermes_version: "1.0.0"
+min_python_version: "3.10"
+tags:
+  - memory
+  - knowledge-graph
+  - neo4j
+  - temporal
+  - rag
+  - llm
+  - embeddings
+features:
+  - automatic_memory_recall
+  - background_persistence
+  - explicit_search
+  - entity_deletion
+  - reasoning_block_stripping
+  - configurable_search_strategies
+  - content_truncation
+  - environment_variable_support
+supported_platforms:
+  - linux
+  - docker
+  - kubernetes

@@ -16,17 +16,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from agent.memory_provider import MemoryProvider
 
-# Silenzia i warning di serializzazione di Pydantic sui log generali
+# Suppress Pydantic serialization warnings in general logs
 warnings.filterwarnings("ignore", message="Pydantic serializer warnings")
 
-# --- CONFIGURAZIONE LOGGING ESPLICITA PER DOCKER (STILE EMITTER OPEN-WEBUI) ---
+# --- EXPLICIT LOGGING CONFIGURATION FOR DOCKER (OPEN-WEBUI EMITTER STYLE) ---
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.propagate = False 
 
 sys_handler = logging.StreamHandler(sys.stdout)
 sys_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(message)s')  # Lasciamo il formato pulito gestito dalle stringhe custom
+formatter = logging.Formatter('%(message)s')  # Keep clean format handled by custom strings
 sys_handler.setFormatter(formatter)
 logger.handlers.clear()
 logger.addHandler(sys_handler)
@@ -141,22 +141,22 @@ class GraphitiMemoryProvider(MemoryProvider):
 
         try:
             import graphiti_core
-            logger.info("hermes | [GRAPHITI-PLUGIN] ✅ graphiti-core rilevato correttamente.")
+            logger.info("hermes | [GRAPHITI-PLUGIN] ✅ graphiti-core detected correctly.")
         except ImportError:
-            logger.info("hermes | [GRAPHITI-PLUGIN] ⚠️ graphiti-core assente. Installazione automatica con uv...")
+            logger.info("hermes | [GRAPHITI-PLUGIN] ⚠️ graphiti-core missing. Auto-installing with uv...")
             try:
                 subprocess.run(['uv', 'pip', 'install', 'graphiti-core'], check=True, capture_output=True, text=True)
                 import importlib
                 importlib.invalidate_caches()
-                logger.info("hermes | [GRAPHITI-PLUGIN] ✅ graphiti-core installato con successo!")
+                logger.info("hermes | [GRAPHITI-PLUGIN] ✅ graphiti-core installed successfully!")
             except Exception as e:
-                logger.error(f"hermes | [GRAPHITI-PLUGIN] ❌ Fallimento installazione uv: {e}")
+                logger.error(f"hermes | [GRAPHITI-PLUGIN] ❌ uv installation failed: {e}")
                 return
 
         self._config = self._load_config()
         os.environ['GRAPHITI_TELEMETRY_ENABLED'] = str(self._config.get('graphiti_telemetry', False)).lower()
         os.environ['SEMAPHORE_LIMIT'] = str(self._config.get('semaphore_limit', 10))
-        logger.info(f"hermes | [GRAPHITI-PLUGIN] 🚀 Provider inizializzato per la sessione: {session_id}")
+        logger.info(f"hermes | [GRAPHITI-PLUGIN] 🚀 Provider initialized for session: {session_id}")
 
     def get_config_schema(self) -> List[Dict[str, Any]]: return []
     def save_config(self, values: Dict[str, Any], hermes_home: str) -> None: pass
@@ -166,7 +166,7 @@ class GraphitiMemoryProvider(MemoryProvider):
     def prefetch(self, query: str, *, session_id: str = '') -> str:
         if not query.strip(): return ''
         if not self._ensure_initialized():
-            logger.warning("hermes | [GRAPHITI-PLUGIN] ⚠️ Impossibile eseguire prefetch: Graphiti non inizializzato.")
+            logger.warning("hermes | [GRAPHITI-PLUGIN] ⚠️ Cannot execute prefetch: Graphiti not initialized.")
             return ''
 
         search_query = sanitize_search_query(query) if self._config.get('sanitize_search_query', True) else query
@@ -175,23 +175,23 @@ class GraphitiMemoryProvider(MemoryProvider):
             search_query = truncate_text_middle(search_query, max_len)
 
         # EMITTER DI APERTURA LOG RICERCA
-        logger.info(f"hermes | [GRAPHITI-PLUGIN] 🔍 Iniezione Automatica - Ricerca nel Grafo per: '{search_query[:60]}...'")
+        logger.info(f"hermes | [GRAPHITI-PLUGIN] 🔍 Auto Memory Injection - Searching Graph for: '{search_query[:60]}...'")
         
         search_start = time.time()
         try:
             results = self._run_async(self._search_graphiti(search_query))
         except Exception as e:
-            logger.error(f"hermes | [GRAPHITI-PLUGIN] ❌ Errore critico durante la ricerca automatica (prefetch): {e}", exc_info=True)
+            logger.error(f"hermes | [GRAPHITI-PLUGIN] ❌ Critical error during automatic search (prefetch): {e}", exc_info=True)
             return ''
 
         search_duration = time.time() - search_start
         if not results:
-            logger.info(f"hermes | [GRAPHITI-PLUGIN] 🔍 Nessun ricordo rilevante trovato nel grafo ({search_duration:.2f}s).")
+            logger.info(f"hermes | [GRAPHITI-PLUGIN] 🔍 No relevant memories found in graph ({search_duration:.2f}s).")
             return ''
         
         edges, nodes = results
         if not edges and not nodes:
-            logger.info(f"hermes | [GRAPHITI-PLUGIN] 🔍 Nessun nodo o arco estratto dal grafo ({search_duration:.2f}s).")
+            logger.info(f"hermes | [GRAPHITI-PLUGIN] 🔍 No nodes or edges extracted from graph ({search_duration:.2f}s).")
             return ''
 
         facts = []
@@ -209,30 +209,30 @@ class GraphitiMemoryProvider(MemoryProvider):
         status_parts = []
         if facts: status_parts.append(f"{len(facts)} fatti")
         if entities: status_parts.append(f"{len(entities)} entità")
-        logger.info(f"hermes | [GRAPHITI-PLUGIN] 🧠 Trovati e pronti all'iniezione: {' e '.join(status_parts)} ({search_duration:.2f}s)")
+        logger.info(f"hermes | [GRAPHITI-PLUGIN] 🧠 Found and ready for injection: {' and '.join(status_parts)} ({search_duration:.2f}s)")
 
         if not facts and not entities: return ''
 
         # Costruzione del blocco di iniezione
         parts = ['<graphiti_memory_patched>']
         if facts:
-            parts.append('# Fatti rilevanti recuperati dal Grafo Temporale:')
+            parts.append('# Relevant facts retrieved from Temporal Knowledge Graph:')
             parts.append('<FACTS>')
             for f, v, i in facts: 
                 parts.append(f'  - {f} (Valid: {v or "unknown"} - {i or "present"})')
-                logger.info(f"hermes | [GRAPHITI-PLUGIN] 📥 Iniettato Fatto: {f}")
+                logger.info(f"hermes | [GRAPHITI-PLUGIN] 📥 Injected Fact: {f}")
             parts.append('</FACTS>')
         if entities:
             if facts: parts.append('')
-            parts.append('# Entità rilevanti e loro riassunti:')
+            parts.append('# Entità rilevanti and loro riassunti:')
             parts.append('<ENTITIES>')
             for n, s in entities.items(): 
                 parts.append(f'  - {n}: {s}')
-                logger.info(f"hermes | [GRAPHITI-PLUGIN] 📥 Iniettata Entità: {n}")
+                logger.info(f"hermes | [GRAPHITI-PLUGIN] 📥 Injected Entity: {n}")
             parts.append('</ENTITIES>')
         parts.append('</graphiti_memory_patched>')
         
-        logger.info("hermes | [GRAPHITI-PLUGIN] 📥 Iniezione automatica nel System Prompt completata con successo.")
+        logger.info("hermes | [GRAPHITI-PLUGIN] 📥 Automatic injection into System Prompt completed successfully.")
         return '\n'.join(parts)
 
     def sync_turn(self, user_content: str, assistant_content: Any, *, session_id: str = '') -> None:
@@ -264,7 +264,7 @@ class GraphitiMemoryProvider(MemoryProvider):
         episode_body = f'User: {clean_user}\n\n---\n\nAssistant: {clean_assistant}'
 
         def _sync():
-            logger.info("hermes | [GRAPHITI-PLUGIN] ✍️ Analisi del turno ed estrazione dei fatti in background...")
+            logger.info("hermes | [GRAPHITI-PLUGIN] ✍️ Analyzing turn and extracting facts in background...")
             sync_start = time.time()
             try:
                 add_results = self._run_async(self._add_episode(episode_body))
@@ -272,19 +272,19 @@ class GraphitiMemoryProvider(MemoryProvider):
                 duration = time.time() - sync_start
                 
                 if add_results:
-                    logger.info(f"hermes | [GRAPHITI-PLUGIN] ✅ Turno aggiunto al Grafo Temporale ({duration:.2f}s)")
+                    logger.info(f"hermes | [GRAPHITI-PLUGIN] ✅ Turn added to Temporal Knowledge Graph ({duration:.2f}s)")
                     if hasattr(add_results, 'edges') and add_results.edges:
                         for idx, edge in enumerate(add_results.edges, 1):
                             emoji = "🔚" if getattr(edge, 'invalid_at', None) else "🔛"
-                            logger.info(f"hermes | [GRAPHITI-PLUGIN]   {emoji} Fatto Estratto {idx}/{len(add_results.edges)}: {edge.fact}")
+                            logger.info(f"hermes | [GRAPHITI-PLUGIN]   {emoji} Extracted Fact {idx}/{len(add_results.edges)}: {edge.fact}")
                     if hasattr(add_results, 'nodes') and add_results.nodes:
                         for idx, node in enumerate(add_results.nodes, 1):
                             summary = f" - {node.summary}" if hasattr(node, 'summary') and node.summary else ""
-                            logger.info(f"hermes | [GRAPHITI-PLUGIN]   👤 Entità Estratta {idx}/{len(add_results.nodes)}: {node.name}{summary}")
+                            logger.info(f"hermes | [GRAPHITI-PLUGIN]   👤 Extracted Entity {idx}/{len(add_results.nodes)}: {node.name}{summary}")
                 else:
-                    logger.info(f"hermes | [GRAPHITI-PLUGIN] ✅ Turno elaborato, nessun nuovo fatto rilevante da estrarre ({duration:.2f}s).")
+                    logger.info(f"hermes | [GRAPHITI-PLUGIN] ✅ Turn processed, no new relevant facts to extract ({duration:.2f}s).")
             except Exception as e:
-                logger.warning(f"hermes | [GRAPHITI-PLUGIN] ❌ Scrittura automatica (sync_turn) fallita: {e}")
+                logger.warning(f"hermes | [GRAPHITI-PLUGIN] ❌ Automatic write (sync_turn) failed: {e}")
 
         if self._sync_thread and self._sync_thread.is_alive(): self._sync_thread.join(timeout=2.0)
         self._sync_thread = threading.Thread(target=_sync, daemon=True)
@@ -305,7 +305,7 @@ class GraphitiMemoryProvider(MemoryProvider):
             if not query:
                 return json.dumps({"error": "Missing query parameter"})
             
-            logger.info(f"hermes | [GRAPHITI-PLUGIN] 🛠️ Tool Call - Esecuzione Ricerca esplicita richiesta per: '{query[:60]}...'")
+            logger.info(f"hermes | [GRAPHITI-PLUGIN] 🛠️ Tool Call - Executing explicit search requested for: '{query[:60]}...'")
             try:
                 results = self._run_async(self._search_graphiti(query, limit))
                 if not results:
@@ -329,7 +329,7 @@ class GraphitiMemoryProvider(MemoryProvider):
                         
                 return json.dumps({"facts": facts, "entities": entities}, ensure_ascii=False)
             except Exception as e:
-                logger.error(f"hermes | [GRAPHITI-PLUGIN] ❌ Errore durante esecuzione tool search: {e}")
+                logger.error(f"hermes | [GRAPHITI-PLUGIN] ❌ Error during search tool execution: {e}")
                 return json.dumps({"error": str(e)})
 
         elif tool_name == 'graphiti_delete_entity':
@@ -338,7 +338,7 @@ class GraphitiMemoryProvider(MemoryProvider):
             if not entity_uuid:
                 return json.dumps({"error": "Missing entity_uuid parameter"})
                 
-            logger.info(f"hermes | [GRAPHITI-PLUGIN] 🛠️ Tool Call - Eliminazione esplicita entità richiesta: {entity_name} ({entity_uuid})")
+            logger.info(f"hermes | [GRAPHITI-PLUGIN] 🛠️ Tool Call - Explicit entity deletion requested: {entity_name} ({entity_uuid})")
             try:
                 from graphiti_core.nodes import EntityNode
                 
@@ -348,7 +348,7 @@ class GraphitiMemoryProvider(MemoryProvider):
                 self._run_async(_delete())
                 return json.dumps({"success": True, "message": f"Entity {entity_name} ({entity_uuid}) successfully deleted from graph"})
             except Exception as e:
-                logger.error(f"hermes | [GRAPHITI-PLUGIN] ❌ Errore durante esecuzione tool delete: {e}")
+                logger.error(f"hermes | [GRAPHITI-PLUGIN] ❌ Error during delete tool execution: {e}")
                 return json.dumps({"error": str(e)})
 
         return json.dumps({"error": f"Unknown tool name: {tool_name}"})
@@ -394,8 +394,8 @@ class GraphitiMemoryProvider(MemoryProvider):
             from graphiti_core.cross_encoder.openai_reranker_client import OpenAIRerankerClient
 
             # ── SANIFICAZIONE AMBIENTALE CRITICA ────────────────────────────────
-            # Rimuoviamo temporaneamente le variabili globali del container che 
-            # costringono Graphiti a usare il modello pesante "hermes" al posto di Gemini.
+            # Temperarily remove global container variables that 
+            # force Graphiti to use the heavy "hermes" instead of Gemini.
             env_backup = {}
             for var_name in ['OPENAI_MODEL_NAME', 'OPENAI_MODEL', 'MODEL', 'ZEP_MODEL']:
                 if var_name in os.environ:
@@ -408,7 +408,7 @@ class GraphitiMemoryProvider(MemoryProvider):
                 target_model = config.get('model', DEFAULTS['model'])
                 target_small_model = config.get('small_model', DEFAULTS['small_model'])
 
-                logger.info(f"hermes | [GRAPHITI-PLUGIN] 🛠️ Configurazione LLM Graphiti - Main: {target_model} | Small: {target_small_model}")
+                logger.info(f"hermes | [GRAPHITI-PLUGIN] 🛠️ Graphiti LLM Configuration - Main: {target_model} | Small: {target_small_model}")
 
                 llm_config = LLMConfig(
                     api_key=config['api_key'], 
@@ -427,7 +427,7 @@ class GraphitiMemoryProvider(MemoryProvider):
                     self._indices_built = True
             
             finally:
-                # Ripristiniamo le variabili d'ambiente originali per non rompere l'operatività di Hermes Agent
+                # Restore original environment variables to avoid breaking Hermes Agent operability
                 for var_name, var_value in env_backup.items():
                     os.environ[var_name] = var_value
 
